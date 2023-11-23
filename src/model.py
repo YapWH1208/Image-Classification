@@ -138,11 +138,11 @@ class PatchEmbeddings(nn.Module):
 
 
 class Embeddings(nn.Module):
-    def __init__(self, hidden_size, max_position_embeddings, hidden_dropout_prob, image_size, patch_size, num_channels):
+    def __init__(self, hidden_size, hidden_dropout_prob, image_size, patch_size, num_channels):
         super(Embeddings).__init__()
         self.patch_embeddings = PatchEmbeddings(image_size, patch_size, hidden_size, num_channels)
         self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_size))
-        self.position_embeddings = nn.Parameter(torch.randn(1, max_position_embeddings, hidden_size))
+        self.position_embeddings = nn.Parameter(torch.randn(1, self.patch_embeddings.num_patches+1, hidden_size))
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
     def forward(self, X):
@@ -156,12 +156,12 @@ class Embeddings(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, image_size, hidden_size, num_hidden_layers, num_attention_heads, intermediate_size, hidden_dropout_prob, attention_probs_dropout_prob, initializer_range, num_classes, num_channels, qkv_bias=True):
+    def __init__(self, image_size, hidden_size, num_hidden_layers, num_attention_heads, intermediate_size, hidden_dropout_prob, attention_probs_dropout_prob, initializer_range, num_classes, num_channels, patch_size, qkv_bias=True):
         super(ViT, self).__init__()
         self.image_size = image_size
         self.hidden_size = hidden_size
         self.num_channels = num_channels
-        self.embeddings = Embeddings(hidden_size, image_size, hidden_dropout_prob, image_size, hidden_size, num_channels)
+        self.embeddings = Embeddings(hidden_size, hidden_dropout_prob, image_size, patch_size, num_channels)
         self.encoder = Encoder(num_hidden_layers, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
         self.classifier = nn.Linear(hidden_size, num_classes)
         self.apply(self.init_weights(initializer_range))

@@ -86,7 +86,18 @@ def main():
     
     trainloader, testloader = prepare_data(batch_size=batch_size)
 
-    model = ViT(config)
+    model = ViT(config["image_size"], 
+                config["hidden_size"], 
+                config["num_hidden_layers"], 
+                config["num_attention_heads"], 
+                config["intermediate_size"], 
+                config["hidden_dropout_prob"], 
+                config["attention_probs_dropout_prob"], 
+                config["initializer_range"], 
+                config["num_classes"], 
+                config["num_channels"],
+                config["patch_size"],
+                config["qkv_bias"])
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, exp_name, device)
