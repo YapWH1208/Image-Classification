@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from model import ViT
-from utils import save_checkpoint, save_experiment
+from utils import save_checkpoint, save_experiment, load_experiment
 from data_preprocessing import prepare_data
 
 config = {
@@ -76,6 +76,19 @@ class Trainer:
         accuracy = correct / len(testloader.dataset)
         avg_loss = total_loss / len(testloader.dataset)
         return accuracy, avg_loss
+    
+    def continue_train(self, trainloader, testloader, epochs, checkpoint_name):
+        _, _, train_losses, test_losses, accuracies = load_experiment(self.exp_name, checkpoint_name)
+        for i in range(epochs):
+            train_loss = self.train_epoch(trainloader)
+            accuracy, test_loss = self.evaluate(testloader)
+            train_losses.append(train_loss)
+            test_losses.append(test_loss)
+            accuracies.append(accuracy)
+            print(f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}")
+            if i % 10 == 0:
+                save_checkpoint(self.exp_name, self.model, i+1)
+        save_experiment(self.exp_name, config, self.model, train_losses, test_losses, accuracies)
 
 def main():
     batch_size = 128
