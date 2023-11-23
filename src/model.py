@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 
 class Encoder():
-    def __init__(self, config):
+    def __init__(self, num_hidden_layers, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias=True):
         super(Encoder, self).__init__()
         self.blocks = nn.ModuleList([])
-        for _ in range(config["num_hidden_layers"]):
-            block = EncoderBlock(config)
+        for _ in range(num_hidden_layers):
+            block = EncoderBlock(hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
             self.blocks.append(block)
 
 
@@ -24,12 +24,12 @@ class Encoder():
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, config):
+    def __init__(self, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias=True):
         super(EncoderBlock, self).__init__()
-        self.norm1 = nn.LayerNorm(config["hidden_size"])
-        self.MHA = MultiHeadAttention(config)
-        self.norm2 = nn.LayerNorm(config["hidden_size"])
-        self.mlp = MLP(config)
+        self.norm1 = nn.LayerNorm(hidden_size)
+        self.MHA = MultiHeadAttention(hidden_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
+        self.norm2 = nn.LayerNorm(hidden_size)
+        self.mlp = MLP(hidden_size, intermediate_size, hidden_dropout_prob)
     
     def forward(self, X, output_attentions=False):
         MHA_X = self.norm1(X)
@@ -49,12 +49,12 @@ class EncoderBlock(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, hidden_size, intermediate_size, hidden_dropout_prob):
         super(MLP, self).__init__()
-        self.fc1 = nn.Linear(config["hidden_size"], config["intermediate_size"])
+        self.fc1 = nn.Linear(hidden_size, intermediate_size)
         self.GELU = nn.GELU()
-        self.fc2 = nn.Linear(config["intermediate_size"], config["hidden_size"])
-        self.dropout = nn.Dropout(config["hidden_dropout_prob"])
+        self.fc2 = nn.Linear(intermediate_size, hidden_size)
+        self.dropout = nn.Dropout(hidden_dropout_prob)
 
     def forward(self, X):
         X = self.fc1(X)
@@ -91,21 +91,21 @@ class Scaled_Dot_Product_Attention(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, hidden_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias):
         super(MultiHeadAttention, self).__init__()
-        self.hidden_size = config["hidden_size"]
-        self.num_attention_heads = config["num_attention_heads"]
+        self.hidden_size = hidden_size
+        self.num_attention_heads = num_attention_heads
         self.attention_head_size = self.hidden_size // self.num_attention_heads
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.qkv_bias = config["qkv_bias"]
+        self.qkv_bias = qkv_bias
         self.heads = nn.ModuleList([])
         for _ in range(self.num_attention_heads):
-            head = Scaled_Dot_Product_Attention(self.hidden_size, self.attention_head_size, config["attention_probs_dropout_prob"], bias=self.qkv_bias)
+            head = Scaled_Dot_Product_Attention(self.hidden_size, self.attention_head_size, attention_probs_dropout_prob, bias=self.qkv_bias)
             self.heads.append(head)
         
         self.output_projection = nn.Linear(self.all_head_size, self.hidden_size)
-        self.output_dropout = nn.Dropout(config["hidden_dropout_prob"])
+        self.output_dropout = nn.Dropout(hidden_dropout_prob)
     
     def forward(self, X, output_attentions=False):
         attention_outputs = [head(X) for head in self.heads]
@@ -121,12 +121,12 @@ class MultiHeadAttention(nn.Module):
 
 
 class PatchEmbeddings(nn.Module):
-    def __init__(self, config) -> None:
+    def __init__(self, image_size, patch_size, hidden_size, num_channels):
         super(PatchEmbeddings, self).__init__()
-        self.image_size = config["image_size"]
-        self.patch_size = config["patch_size"]
-        self.hidden_size = config["hidden_size"]
-        self.num_channels = config["num_channels"]
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.hidden_size = hidden_size
+        self.num_channels = num_channels
         self.num_patches = (self.image_size // self.patch_size) ** 2
         self.projection = nn.Conv2d(self.num_channels, self.hidden_size, kernel_size=self.patch_size, stride=self.patch_size)
     
@@ -138,18 +138,17 @@ class PatchEmbeddings(nn.Module):
 
 
 class Embeddings(nn.Module):
-    def __init__(self, config) -> None:
+    def __init__(self, hidden_size, max_position_embeddings, hidden_dropout_prob, image_size, patch_size, num_channels):
         super(Embeddings).__init__()
-        self.config = config
-        self.patch_embeddings = PatchEmbeddings(config)
-        self.cls_token = nn.Parameter(torch.randn(1, 1, config["hidden_size"]))
-        self.position_embeddings = nn.Parameter(torch.randn(1, config["max_position_embeddings"], config["hidden_size"]))
-        self.dropout = nn.Dropout(config["hidden_dropout_prob"])
+        self.patch_embeddings = PatchEmbeddings(image_size, patch_size, hidden_size, num_channels)
+        self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_size))
+        self.position_embeddings = nn.Parameter(torch.randn(1, max_position_embeddings, hidden_size))
+        self.dropout = nn.Dropout(hidden_dropout_prob)
 
     def forward(self, X):
         X = self.patch_embeddings(X)
         batch_size, _, _ = X.size()
-        cls_tokens = self.cls_token.expand(X.shape[0], -1, -1)
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
         X = torch.cat((cls_tokens, X), dim=1)
         X = X + self.position_embeddings
         X = self.dropout(X)
@@ -157,31 +156,30 @@ class Embeddings(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, config):
+    def __init__(self, image_size, hidden_size, num_hidden_layers, num_attention_heads, intermediate_size, hidden_dropout_prob, attention_probs_dropout_prob, initializer_range, num_classes, num_channels, qkv_bias=True):
         super(ViT, self).__init__()
-        self.config = config
-        self.image_size = config["image_size"]
-        self.hidden_size = config["hidden_size"]
-        self.num_channels = config["num_channels"]
-        self.embeddings = Embeddings(config)
-        self.encoder = Encoder(config)
-        self.classifier = nn.Linear(config["hidden_size"], config["num_classes"])
-        self.apply(self.init_weights)
+        self.image_size = image_size
+        self.hidden_size = hidden_size
+        self.num_channels = num_channels
+        self.embeddings = Embeddings(hidden_size, image_size, hidden_dropout_prob, image_size, hidden_size, num_channels)
+        self.encoder = Encoder(num_hidden_layers, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
+        self.classifier = nn.Linear(hidden_size, num_classes)
+        self.apply(self.init_weights(initializer_range))
 
     def forward(self, X):
         embedding_output = self.embeddings(X)
-        encoder_output, all_attentions = self.encoder(embedding_output)
+        encoder_output, _ = self.encoder(embedding_output)
         logits = self.classifier(encoder_output[:, 0, :])
         return logits
     
-    def _init_weights(self, module):
+    def _init_weights(self, module, initializer_range=0.02):
         if isinstance(module, (nn.Linear, nn.Conv2d)):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config["initializer_range"])
+            torch.nn.init.normal_(module.weight, mean=0.0, std=initializer_range)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         elif isinstance(module, Embeddings):
-            module.position_embeddings.data = nn.init.trunc_normal_(module.position_embeddings.data.to(torch.float32), mean=0.0, std=self.config["initializer_range"]).to(module.position_embeddings.dtype)
-            module.cls_token.data = nn.init.trunc_normal_(module.cls_token.data.to(torch.float32), mean=0.0, std=self.config["initializer_range"]).to(module.cls_token.dtype)
+            module.position_embeddings.data = nn.init.trunc_normal_(module.position_embeddings.data.to(torch.float32), mean=0.0, std=initializer_range).to(module.position_embeddings.dtype)
+            module.cls_token.data = nn.init.trunc_normal_(module.cls_token.data.to(torch.float32), mean=0.0, std=initializer_range).to(module.cls_token.dtype)
