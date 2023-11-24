@@ -20,15 +20,37 @@ config = {
     "qkv_bias": True,
 }
 
+
 class Trainer:
-    def __init__(self, model, optimizer, loss_func, exp_name, device):
+    """
+    Trainer class for training the model
+
+    Args:
+    model (ViT): The model used for the experiment
+    optimizer (optim): Optimizer used for training
+    loss_func (nn): Loss function used for training
+    exp_name (str): Name of the experiment
+    device (str): Device to use for training
+    """
+    def __init__(self, model, optimizer, loss_func:str, exp_name:str, device:str):
         self.model = model.to(device)
         self.optimizer = optimizer
         self.loss_func = loss_func
         self.exp_name = exp_name
         self.device = device
 
-    def train(self, trainloader, testloader, epochs):
+    def train(self, trainloader, testloader, epochs:int):
+        """
+        Training function for the model
+
+        Args:
+        trainloader (DataLoader): DataLoader for training data
+        testloader (DataLoader): DataLoader for testing data
+        epochs (int): Number of epochs to train the model
+
+        Returns:
+        None
+        """
         train_losses, test_losses, accuracies = [], [], []
         for i in range(epochs):
             train_loss = self.train_epoch(trainloader)
@@ -42,6 +64,15 @@ class Trainer:
         save_experiment(self.exp_name, config, self.model, train_losses, test_losses, accuracies)
 
     def train_epoch(self, trainloader):
+        """
+        Training function for one epoch
+
+        Args:
+        trainloader (DataLoader): DataLoader for training data
+
+        Returns:
+        train_loss (float): Training loss
+        """
         self.model.train()
         total_loss = 0
         for batch in trainloader:
@@ -57,6 +88,15 @@ class Trainer:
     
     @torch.no_grad()
     def test(self, testloader):
+        """
+        Testing function for the model
+
+        Args:
+        testloader (DataLoader): DataLoader for testing data
+
+        Returns:
+        None
+        """
         self.model.eval()
         total_loss = 0
         correct = 0
@@ -77,7 +117,19 @@ class Trainer:
         avg_loss = total_loss / len(testloader.dataset)
         return accuracy, avg_loss
     
-    def continue_train(self, trainloader, testloader, epochs, checkpoint_name):
+    def continue_train(self, trainloader, testloader, epochs:int, checkpoint_name:str):
+        """
+        Continue training from a checkpoint
+
+        Args:
+        trainloader (DataLoader): DataLoader for training data
+        testloader (DataLoader): DataLoader for testing data
+        epochs (int): Number of epochs to train the model
+        checkpoint_name (str): Name of the checkpoint file
+
+        Returns:
+        None
+        """
         _, _, train_losses, test_losses, accuracies = load_experiment(self.exp_name, checkpoint_name)
         for i in range(epochs):
             train_loss = self.train_epoch(trainloader)
@@ -91,30 +143,34 @@ class Trainer:
         save_experiment(self.exp_name, config, self.model, train_losses, test_losses, accuracies)
 
 def main():
+    # Hyperparameters
     batch_size = 128
     epochs = 100
     learning_rate = 1e-3
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     exp_name = "ViT"
     
+
     trainloader, testloader = prepare_data(batch_size=batch_size)
 
-    model = ViT(config["image_size"], 
-                config["hidden_size"], 
-                config["num_hidden_layers"], 
-                config["num_attention_heads"], 
-                config["intermediate_size"], 
-                config["hidden_dropout_prob"], 
-                config["attention_probs_dropout_prob"], 
-                config["initializer_range"], 
-                config["num_classes"], 
-                config["num_channels"],
-                config["patch_size"],
-                config["qkv_bias"])
+    model = ViT(config['image_size'],
+                config['hidden_size'], 
+                config['num_hidden_layers'],
+                config['intermediate_size'], 
+                config['patch_size'], 
+                config['num_classes'], 
+                config['num_attention_heads'], 
+                config['hidden_dropout_prob'], 
+                config['attention_probs_dropout_prob'], 
+                config['initializer_range'], 
+                config['num_channels'], 
+                config['patch_size'], 
+                config['qkv_bias'])
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, exp_name, device)
     trainer.train(trainloader, testloader, epochs)
+    trainer.continue_train(trainloader, testloader, epochs, "model_10.pt")
 
 if __name__ == "__main__":
     main()

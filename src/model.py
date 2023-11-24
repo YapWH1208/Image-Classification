@@ -3,37 +3,60 @@ import torch
 import torch.nn as nn
 
 class Encoder():
-    def __init__(self, num_hidden_layers, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias=True):
+    """
+    Encoder class for the ViT model
+
+    Args:
+    num_hidden_layers (int): Number of hidden layers
+    hidden_size (int): Hidden size
+    intermediate_size (int): Intermediate size
+    num_attention_heads (int): Number of attention heads. Defaults to 4.
+    attention_probs_dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+    qkv_bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
+
+    Returns:
+    X (Tensor): Tensor containing the output of the encoder
+    """
+    def __init__(self, num_hidden_layers:int, hidden_size:int, intermediate_size:int, num_attention_heads:int=4, attention_probs_dropout_prob:float=0.0, hidden_dropout_prob:float=0.0, qkv_bias:bool=True):
         super(Encoder, self).__init__()
         self.blocks = nn.ModuleList([])
         for _ in range(num_hidden_layers):
-            block = EncoderBlock(hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
+            block = EncoderBlock(hidden_size, intermediate_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
             self.blocks.append(block)
 
 
-    def forward(self, x, output_attentions=False):
-        attention = []
+    def forward(self, X):
         for block in self.blocks:
-            x, attn = block(x, output_attentions)
-            if output_attentions:
-                attention.append(attn)
-        if not output_attentions:
-            return (x, None)
-        else:
-            return (x, attention)
+            X, _ = block(X)
+        return X
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias=True):
+    """
+    Encoder block for the ViT model
+
+    Args:
+    hidden_size (int): Hidden size.
+    intermediate_size (int): Intermediate size.
+    num_attention_heads (int): Number of attention heads. Defaults to 4.
+    attention_probs_dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+    qkv_bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
+
+    Returns:
+    X (Tensor): Tensor containing the output of the encoder block
+    """
+    def __init__(self, hidden_size:int, intermediate_size:int, num_attention_heads:int=4, attention_probs_dropout_prob:float=0.0, hidden_dropout_prob:float=0.0, qkv_bias=True):
         super(EncoderBlock, self).__init__()
         self.norm1 = nn.LayerNorm(hidden_size)
         self.MHA = MultiHeadAttention(hidden_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
         self.norm2 = nn.LayerNorm(hidden_size)
         self.mlp = MLP(hidden_size, intermediate_size, hidden_dropout_prob)
     
-    def forward(self, X, output_attentions=False):
+    def forward(self, X):
         MHA_X = self.norm1(X)
-        attention_output, attention_probs = self.MHA(MHA_X, output_attentions)
+        attention_output,_ = self.MHA(MHA_X)
 
         X = X + attention_output
 
@@ -42,14 +65,22 @@ class EncoderBlock(nn.Module):
 
         X = X + mlp_output
 
-        if not output_attentions:
-            return (X, None)
-        else:
-            return (X, attention_probs)
+        return X
 
 
 class MLP(nn.Module):
-    def __init__(self, hidden_size, intermediate_size, hidden_dropout_prob):
+    """
+    Multi Layer Perceptron for the ViT model
+
+    Args:
+    hidden_size (int): Hidden size
+    intermediate_size (int): Intermediate size
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+
+    Returns:
+    X (Tensor): Tensor containing the output of the MLP
+    """
+    def __init__(self, hidden_size:int, intermediate_size:int, hidden_dropout_prob:int=0.0):
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(hidden_size, intermediate_size)
         self.GELU = nn.GELU()
@@ -65,7 +96,20 @@ class MLP(nn.Module):
 
 
 class Scaled_Dot_Product_Attention(nn.Module):
-    def __init__(self, hidden_size, attention_head_size, dropout_prob, bias=True):
+    """
+    Scale Dot Product Attention for the ViT model
+
+    Args:
+    hidden_size (int): Hidden size
+    attention_head_size (int): Attention head size
+    dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
+    bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
+
+    Returns:
+    attention_output (Tensor): Tensor containing the attention output
+    attention_probs (Tensor): Tensor containing the attention probabilities
+    """
+    def __init__(self, hidden_size:int, attention_head_size:int, dropout_prob:float=0.0, bias=True):
         super(Scaled_Dot_Product_Attention, self).__init__()
         self.hidden_size = hidden_size
         self.attention_head_size = attention_head_size
@@ -91,7 +135,20 @@ class Scaled_Dot_Product_Attention(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, hidden_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias):
+    """
+    Multi Head Attention for the ViT model
+
+    Args:
+    hidden_size (int): Hidden size
+    num_attention_heads (int): Number of attention heads. Defaults to 4.
+    attention_probs_dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+    qkv_bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
+
+    Returns:
+    attention_output (Tensor): Tensor containing the attention output
+    """
+    def __init__(self, hidden_size:int, num_attention_heads:int=4, attention_probs_dropout_prob:float=0.0, hidden_dropout_prob:float=0.0, qkv_bias:bool=True):
         super(MultiHeadAttention, self).__init__()
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
@@ -107,21 +164,29 @@ class MultiHeadAttention(nn.Module):
         self.output_projection = nn.Linear(self.all_head_size, self.hidden_size)
         self.output_dropout = nn.Dropout(hidden_dropout_prob)
     
-    def forward(self, X, output_attentions=False):
+    def forward(self, X):
         attention_outputs = [head(X) for head in self.heads]
         attention_output = torch.cat([attention_output for attention_output, _ in attention_outputs], dim=-1)
         attention_output = self.output_projection(attention_output)
         attention_output = self.output_dropout(attention_output)
 
-        if not output_attentions:
-            return (attention_output, None)
-        else:
-            attention_probs = torch.stack([attention_probs for _, attention_probs in attention_outputs], dim=1)
-            return (attention_output, attention_probs)
+        return attention_output
 
 
 class PatchEmbeddings(nn.Module):
-    def __init__(self, image_size, patch_size, hidden_size, num_channels):
+    """
+    Patch Embeddings for the ViT model
+
+    Args:
+    image_size (int): Image size
+    hidden_size (int): Hidden size
+    patch_size (int): Patch size. Defaults to 16.
+    num_channels (int): Number of channels. Defaults to 3(RGB).
+
+    Returns:
+    X (Tensor): Tensor containing the output of the patch embeddings
+    """
+    def __init__(self, image_size:int, hidden_size:int,  patch_size:int=16, num_channels:int=3):
         super(PatchEmbeddings, self).__init__()
         self.image_size = image_size
         self.patch_size = patch_size
@@ -138,9 +203,22 @@ class PatchEmbeddings(nn.Module):
 
 
 class Embeddings(nn.Module):
-    def __init__(self, hidden_size, hidden_dropout_prob, image_size, patch_size, num_channels):
+    """
+    Embeddings for the ViT model
+
+    Args:
+    hidden_size (int): Hidden size
+    image_size (int): Image size
+    patch_size (int): Patch size. Defaults to 16.
+    num_channels (int): Number of channels. Defaults to 3(RGB).
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+
+    Returns:
+    X (Tensor): Tensor containing the output of the embeddings
+    """
+    def __init__(self, hidden_size:int, image_size:int, patch_size:int=16, num_channels:int=3, hidden_dropout_prob:float=0.0):
         super(Embeddings).__init__()
-        self.patch_embeddings = PatchEmbeddings(image_size, patch_size, hidden_size, num_channels)
+        self.patch_embeddings = PatchEmbeddings(image_size, hidden_size, patch_size, num_channels)
         self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_size))
         self.position_embeddings = nn.Parameter(torch.randn(1, self.patch_embeddings.num_patches+1, hidden_size))
         self.dropout = nn.Dropout(hidden_dropout_prob)
@@ -156,13 +234,34 @@ class Embeddings(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, image_size, hidden_size, num_hidden_layers, num_attention_heads, intermediate_size, hidden_dropout_prob, attention_probs_dropout_prob, initializer_range, num_classes, num_channels, patch_size, qkv_bias=True):
+    """
+    Vision Transformer model
+
+    Args:
+    image_size (int): Image size
+    hidden_size (int): Hidden size
+    num_hidden_layers (int): Number of hidden layers
+    intermediate_size (int): Intermediate size
+    num_classes (int): Number of classes
+    num_attention_heads (int): Number of attention heads. Defaults to 4.
+    hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
+    attention_probs_dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
+    initializer_range (float): Initializer range. Defaults to 0.02.
+    num_channels (int): Number of channels. Defaults to 3(RGB).
+    patch_size (int): Patch size. Defaults to 16.
+    qkv_bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
+
+    Returns:
+    logits (Tensor): Tensor containing the logits
+    """
+    def __init__(self, image_size:int, hidden_size:int, num_hidden_layers:int, intermediate_size, num_classes:int, num_attention_heads:int=4, hidden_dropout_prob:float=0.0, 
+                 attention_probs_dropout_prob:float=0.0, initializer_range:float=0.02, num_channels:int=3, patch_size:int=16, qkv_bias:bool=True):
         super(ViT, self).__init__()
         self.image_size = image_size
         self.hidden_size = hidden_size
         self.num_channels = num_channels
-        self.embeddings = Embeddings(hidden_size, hidden_dropout_prob, image_size, patch_size, num_channels)
-        self.encoder = Encoder(num_hidden_layers, hidden_size, num_attention_heads, intermediate_size, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
+        self.embeddings = Embeddings(hidden_size, image_size, patch_size, num_channels, hidden_dropout_prob)
+        self.encoder = Encoder(num_hidden_layers, hidden_size, intermediate_size, num_attention_heads, attention_probs_dropout_prob, hidden_dropout_prob, qkv_bias)
         self.classifier = nn.Linear(hidden_size, num_classes)
         self.apply(self.init_weights(initializer_range))
 
