@@ -1,41 +1,38 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torchvision import transforms
-from PIL import Image
-import os
+from torchvision.datasets import ImageFolder
 
-class CustomImageDataset(Dataset):
-    def __init__(self, root_dir, batch_size=4, num_workers=2, shuffle = True):
-        self.root_dir = root_dir
-        self.classes = sorted(os.listdir(root_dir))
-        self.class_to_idx = {cls: i for i, cls in enumerate(self.classes)}
-        self.file_paths, self.labels = self._load_dataset()
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-        ])
+def prepare_data(root_dir:str, batch_size:int=4, num_workers:int=2, shuffle:bool=True):
+    """
+    Prepares the data for training and testing
 
-    def __len__(self):
-        return len(self.file_paths)
+    Args:
+    root_dir (str): Path to the root directory of the dataset
+    batch_size (int, optional): Batch size. Defaults to 4.
+    num_workers (int, optional): Number of workers. Defaults to 2.
+    shuffle (bool, optional): Whether to shuffle the data. Defaults to True.
 
-    def __getitem__(self, idx):
-        img_path = self.file_paths[idx]
-        img = Image.open(img_path).convert("RGB")
-        label = self.labels[idx]
+    Returns:
+    trainloader (DataLoader): DataLoader for training data
+    testloader (DataLoader): DataLoader for testing data
+    classes (list): List of classes in the dataset
+    """
+    train_transform = transforms.Compose(
+        [transforms.ToTensor(),
+        transforms.Resize((224,224)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomResizedCrop((32, 32), scale=(0.8, 1.0), ratio=(0.75, 1.3333333333333333), interpolation=2),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    test_transform = transforms.Compose(
+        [transforms.ToTensor(),
+        transforms.Resize((224,224)),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    
+    trainset = ImageFolder(root_dir, train_transform)
+    testset = ImageFolder(root_dir, test_transform)
 
-        if self.transform:
-            img = self.transform(img)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
-        return img, label
-
-    def _load_dataset(self):
-        file_paths = []
-        labels = []
-        for cls in self.classes:
-            class_dir = os.path.join(self.root_dir, cls)
-            for file_name in os.listdir(class_dir):
-                file_path = os.path.join(class_dir, file_name)
-                file_paths.append(file_path)
-                labels.append(self.class_to_idx[cls])
-        return file_paths, labels
+    return trainloader, testloader, trainset.classes
