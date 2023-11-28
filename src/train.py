@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from model import ViT
-from utils import save_checkpoint, save_experiment, load_experiment
+from utils import save_checkpoint, load_experiment
 from data_preprocessing import prepare_data
 
 class Trainer:
