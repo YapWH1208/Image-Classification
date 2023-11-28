@@ -5,22 +5,6 @@ from model import ViT
 from utils import save_checkpoint, save_experiment, load_experiment
 from data_preprocessing import prepare_data
 
-config = {
-    "patch_size": 16,
-    "hidden_size": 48,
-    "num_hidden_layers": 4,
-    "num_attention_heads": 4,
-    "intermediate_size": 4 * 48, # 4 * hidden_size
-    "hidden_dropout_prob": 0.0,
-    "attention_probs_dropout_prob": 0.0,
-    "initializer_range": 0.02,
-    "image_size": 32,
-    "num_classes": 10, 
-    "num_channels": 3,
-    "qkv_bias": True,
-}
-
-
 class Trainer:
     """
     Trainer class for training the model
@@ -61,7 +45,6 @@ class Trainer:
             print(f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}")
             if i % 10 == 0:
                 save_checkpoint(self.exp_name, self.model, i+1)
-        save_experiment(self.exp_name, config, self.model, train_losses, test_losses, accuracies)
 
     def train_epoch(self, trainloader):
         """
@@ -79,8 +62,8 @@ class Trainer:
             batch = [t.to(self.device) for t in batch]
             images, labels = batch
             self.optimizer.zero_grad()
-            outputs = self.model(batch[0])
-            loss = self.loss_func(self.model(images), labels)
+            outputs = self.model(images)
+            loss = self.loss_func(outputs, labels)
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item() * len(images)
@@ -140,7 +123,6 @@ class Trainer:
             print(f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}")
             if i % 10 == 0:
                 save_checkpoint(self.exp_name, self.model, i+1)
-        save_experiment(self.exp_name, config, self.model, train_losses, test_losses, accuracies)
 
 def main():
     # Hyperparameters
@@ -149,23 +131,26 @@ def main():
     learning_rate = 1e-3
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     exp_name = "ViT"
-    
+    num_workers = 2
+    data_dir = "./data/"
+    patch_size = 16
+    hidden_size = 48
+    num_hidden_layers = 4
+    num_attention_heads = 4
+    intermediate_size = 4 * hidden_size
+    hidden_dropout_prob = 0.0
+    attention_probs_dropout_prob = 0.0
+    initializer_range = 0.02
+    image_size = 32
+    num_classes = 3
+    num_channels = 3
+    qkv_bias = True
 
-    trainloader, testloader = prepare_data(batch_size=batch_size)
+    trainloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+    print(classes)
 
-    model = ViT(config['image_size'],
-                config['hidden_size'], 
-                config['num_hidden_layers'],
-                config['intermediate_size'], 
-                config['patch_size'], 
-                config['num_classes'], 
-                config['num_attention_heads'], 
-                config['hidden_dropout_prob'], 
-                config['attention_probs_dropout_prob'], 
-                config['initializer_range'], 
-                config['num_channels'], 
-                config['patch_size'], 
-                config['qkv_bias'])
+    model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, num_classes, num_attention_heads, hidden_dropout_prob, 
+                attention_probs_dropout_prob, initializer_range, num_channels, patch_size, qkv_bias)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, exp_name, device)

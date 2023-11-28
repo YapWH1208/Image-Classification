@@ -4,41 +4,6 @@ import torch
 from model import ViT
 
 
-def save_experiment(experiment_name:str, config:dict, model, train_losses:list, test_losses:list, accuracies:list, base_dir:str="experiments"):
-    """
-    Saves the experiment after training
-
-    Args:
-    experiment_name (str): Name of the experiment
-    config (dict): Dictionary containing the config of the experiment
-    model (ViT): The model used for the experiment
-    train_losses (list): List containing the training losses
-    test_losses (list): List containing the test losses
-    accuracies (list): List containing the accuracies
-    base_dir (str, optional): Base directory where the experiment is saved. Defaults to "experiments".
-
-    Returns:
-    None
-    """
-    outdir = os.path.join(base_dir, experiment_name)
-    os.makedirs(outdir, exist_ok=True)
-    
-    configfile = os.path.join(outdir, 'config.json')
-    with open(configfile, 'w') as f:
-        json.dump(config, f, sort_keys=True, indent=4)
-    
-    jsonfile = os.path.join(outdir, 'metrics.json')
-    with open(jsonfile, 'w') as f:
-        data = {
-            'train_losses': train_losses,
-            'test_losses': test_losses,
-            'accuracies': accuracies,
-        }
-        json.dump(data, f, sort_keys=True, indent=4)
-    
-    save_checkpoint(experiment_name, model, "final", base_dir=base_dir)
-
-
 def save_checkpoint(experiment_name:str, model, epoch:int, base_dir:str="experiments"):
     """
     Saves the model checkpoint
