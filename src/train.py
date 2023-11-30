@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from model import ViT
 from utils import save_checkpoint, load_experiment, set_logger, lastest_checkpoint
-from data_preprocessing import prepare_data
+from data_preprocessing import prepare_data, prepare_test_data
 import os
 import matplotlib.pyplot as plt
 import logging
@@ -213,30 +213,62 @@ def plot_metrics(train_losses, val_losses, accuracies):
     plt.tight_layout()
     plt.show()
 
+def test(testloader, model, device):
+    """
+    Testing function for the model
+
+    Args:
+    testloader (DataLoader): DataLoader for testing data
+    model (ViT): The model used for the experiment
+    device (str): Device to use for training
+
+    Returns:
+    None
+    """
+    model.eval()
+    total_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for batch in testloader:
+            batch = [t.to(device) for t in batch]
+            images, labels = batch
+
+            logits = model(images)
+
+            loss = nn.CrossEntropyLoss()(logits, labels)
+            total_loss += loss.item() * len(images)
+
+            # Calculate the accuracy
+            predictions = torch.argmax(logits, dim=1)
+            correct += torch.sum(predictions == labels).item()
+    accuracy = correct / len(testloader.dataset)
+    avg_loss = total_loss / len(testloader.dataset)
+    return accuracy, avg_loss
+
+
+batch_size = 128
+epochs = 100
+learning_rate = 1e-3
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+exp_name = "ViT"
+num_workers = 2
+data_dir = "./data/"
+patch_size = 16
+hidden_size = 48
+num_hidden_layers = 4
+num_attention_heads = 4
+intermediate_size = 4 * hidden_size
+hidden_dropout_prob = 0.0
+attention_probs_dropout_prob = 0.0
+initializer_range = 0.02
+image_size = 224
+num_channels = 3
+qkv_bias = True
+early_stop_patience = 5
+log_path = os.path.join("experiments", exp_name, "train.log")
+
 
 def main(continue_train:bool=False):
-    # Hyperparameters
-    batch_size = 128
-    epochs = 100
-    learning_rate = 1e-3
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    exp_name = "ViT"
-    num_workers = 2
-    data_dir = "./data/"
-    patch_size = 16
-    hidden_size = 48
-    num_hidden_layers = 4
-    num_attention_heads = 4
-    intermediate_size = 4 * hidden_size
-    hidden_dropout_prob = 0.0
-    attention_probs_dropout_prob = 0.0
-    initializer_range = 0.02
-    image_size = 224
-    num_channels = 3
-    qkv_bias = True
-    early_stop_patience = 5
-    log_path = os.path.join("experiments", exp_name, "train.log")
-
     set_logger(log_path)
     trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
     logging.info("-------- Dataset Build! --------")
@@ -263,4 +295,32 @@ def main(continue_train:bool=False):
 if __name__ == "__main__":
     import warnings
     warnings.filterwarnings('ignore')
-    main()
+    main(continue_train=False)
+
+    def test_visualize(model, device, testloader, classes):
+        """Visualize the predictions of the model"""
+        model.eval()
+        with torch.no_grad():
+            for batch in testloader:
+                batch = [t.to(device) for t in batch]
+                images, labels = batch
+
+                logits = model(images)
+                predictions = torch.argmax(logits, dim=1)
+
+                for i in range(len(images)):
+                    image = images[i]
+                    label = labels[i]
+                    prediction = predictions[i]
+
+                    plt.imshow(image.permute(1, 2, 0).cpu())
+                    plt.title(f"Label: {classes[label]}, Prediction: {classes[prediction]}")
+                    plt.show()
+    
+    model_path = lastest_checkpoint()
+    testloader, classes = prepare_test_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+    model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                attention_probs_dropout_prob, initializer_range, num_channels, patch_size, qkv_bias)
+    model.load_state_dict(torch.load(model_path))
+    
+    test_visualize(model, device, testloader, classes)
