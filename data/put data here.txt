@@ -1,0 +1,11 @@
+|- Class 1
+|---- img1.jpg
+|---- img2.jpg
+|
+|- Class 2
+|---- img1.jpg
+|---- img2.jpg
+|
+|- Class 3
+|---- img1.jpg
+|---- img2.jpg
