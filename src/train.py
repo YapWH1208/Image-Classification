@@ -37,15 +37,20 @@ class Trainer:
         None
         """
         train_losses, test_losses, accuracies = [], [], []
-        for i in range(epochs):
-            train_loss = self.train_epoch(trainloader)
-            accuracy, test_loss = self.test(testloader)
-            train_losses.append(train_loss)
-            test_losses.append(test_loss)
-            accuracies.append(accuracy)
-            print(f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}")
-            if i % 10 == 0:
-                save_checkpoint(self.exp_name, self.model, i+1)
+        try:
+            for i in range(epochs):
+                train_loss = self.train_epoch(trainloader)
+                accuracy, test_loss = self.test(testloader)
+                train_losses.append(train_loss)
+                test_losses.append(test_loss)
+                accuracies.append(accuracy)
+                print(f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}")
+                if i % 10 == 0:
+                    save_checkpoint(self.exp_name, self.model, i+1)
+        except KeyboardInterrupt:
+            print("Keyboard interrupt detected. Saving the model...")
+            save_checkpoint(self.exp_name, self.model, i+1)
+            print("Model saved successfully.")
 
     def train_epoch(self, trainloader):
         """
@@ -156,7 +161,7 @@ def main():
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, exp_name, device)
     trainer.train(trainloader, testloader, epochs)
-    trainer.continue_train(trainloader, testloader, epochs, "model_10.pt")
+    #trainer.continue_train(trainloader, testloader, epochs, "model_10.pt")
 
 if __name__ == "__main__":
     import warnings
