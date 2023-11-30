@@ -18,19 +18,13 @@ def prepare_data(root_dir:str, batch_size:int=4, num_workers:int=2, shuffle:bool
     testloader (DataLoader): DataLoader for testing data
     classes (list): List of classes in the dataset
     """
-    train_transform = transforms.Compose(
+    transform = transforms.Compose(
         [transforms.ToTensor(),
-        transforms.Resize((224,224)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomResizedCrop((32, 32), scale=(0.8, 1.0), ratio=(0.75, 1.3333333333333333), interpolation=2),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    test_transform = transforms.Compose(
-        [transforms.ToTensor(),
-        transforms.Resize((224,224)),
+        transforms.Resize((224,224), antialias=True),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     
-    trainset = ImageFolder(root_dir, train_transform)
-    testset = ImageFolder(root_dir, test_transform)
+    trainset = ImageFolder(root_dir, transform)
+    testset = ImageFolder(root_dir, transform)
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)

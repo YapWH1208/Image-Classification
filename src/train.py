@@ -4,6 +4,7 @@ import torch.optim as optim
 from model import ViT
 from utils import save_checkpoint, load_experiment
 from data_preprocessing import prepare_data
+import os
 
 class Trainer:
     """
@@ -38,7 +39,7 @@ class Trainer:
         train_losses, test_losses, accuracies = [], [], []
         for i in range(epochs):
             train_loss = self.train_epoch(trainloader)
-            accuracy, test_loss = self.evaluate(testloader)
+            accuracy, test_loss = self.test(testloader)
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             accuracies.append(accuracy)
@@ -90,7 +91,7 @@ class Trainer:
 
                 logits = self.model(images)
 
-                loss = self.loss_fn(logits, labels)
+                loss = self.loss_func(logits, labels)
                 total_loss += loss.item() * len(images)
 
                 # Calculate the accuracy
@@ -114,9 +115,10 @@ class Trainer:
         None
         """
         _, _, train_losses, test_losses, accuracies = load_experiment(self.exp_name, checkpoint_name)
+        train_losses, test_losses, accuracies = [], [], []
         for i in range(epochs):
             train_loss = self.train_epoch(trainloader)
-            accuracy, test_loss = self.evaluate(testloader)
+            accuracy, test_loss = self.test(testloader)
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             accuracies.append(accuracy)
@@ -141,15 +143,14 @@ def main():
     hidden_dropout_prob = 0.0
     attention_probs_dropout_prob = 0.0
     initializer_range = 0.02
-    image_size = 32
-    num_classes = 3
+    image_size = 224
     num_channels = 3
     qkv_bias = True
 
     trainloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
-    print(classes)
+    #print(classes)
 
-    model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, num_classes, num_attention_heads, hidden_dropout_prob, 
+    model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
                 attention_probs_dropout_prob, initializer_range, num_channels, patch_size, qkv_bias)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     loss_func = nn.CrossEntropyLoss()
@@ -158,4 +159,6 @@ def main():
     trainer.continue_train(trainloader, testloader, epochs, "model_10.pt")
 
 if __name__ == "__main__":
+    import warnings
+    warnings.filterwarnings('ignore')
     main()
