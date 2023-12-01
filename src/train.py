@@ -73,7 +73,7 @@ class Trainer:
                     logging.info("-------- Early Stop! --------")
                     break
 
-                if epoch % 10 == 0:
+                if (epoch+1) % 10 == 0:
                     save_checkpoint(self.exp_name, self.model, epoch + 1)
 
         except KeyboardInterrupt:
