@@ -49,3 +49,27 @@ def prepare_data(root_dir: str, batch_size: int = 4, num_workers: int = 2, shuff
     testloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return trainloader, valloader, testloader, dataset.classes
+
+def prepare_test_data(root_dir: str, batch_size: int = 4, num_workers: int = 2):
+    """
+    Prepares the data for testing
+
+    Returns:
+    testloader (DataLoader): DataLoader for testing data
+    classes (list): List of classes in the dataset
+    """
+
+    # Define the transformations
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((224, 224), antialias=True),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    # Load the dataset
+    dataset = ImageFolder(root_dir, transform)
+
+    # Create DataLoader for testing set
+    testloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    return testloader, dataset.classes
