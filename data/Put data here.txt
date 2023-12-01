@@ -1,0 +1,14 @@
+./root
+├── Class_1
+│   ├── img_1-1.jpg
+│   ├── img_1-2.jpg
+│   └── ...
+├── Class_2
+│   ├── img_2-1.jpg
+│   ├── img_2-2.jpg
+│   └── ...
+├── Class_3
+│   ├── img_3-1.jpg
+│   ├── img_3-2.jpg
+│   └── ...
+└── ...
