@@ -50,9 +50,15 @@ def prepare_data(root_dir: str, batch_size: int = 4, num_workers: int = 2, shuff
 
     return trainloader, valloader, testloader, dataset.classes
 
+
 def prepare_test_data(root_dir: str, batch_size: int = 4, num_workers: int = 2):
     """
     Prepares the data for testing
+
+    Args:
+    root_dir (str): Path to the root directory of the dataset
+    batch_size (int, optional): Batch size. Defaults to 4.
+    num_workers (int, optional): Number of workers. Defaults to 2.
 
     Returns:
     testloader (DataLoader): DataLoader for testing data
