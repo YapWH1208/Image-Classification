@@ -1,12 +1,75 @@
 # Human-Action-Estimation
-## Introduction
 
-Human action estimation plays a pivotal role in various fields, including surveillance, healthcare, human-computer interaction, and robotics. Accurately identifying and understanding human actions from self-taken image sequences is a meaningful yet crucial task. With recent advancements in deep learning, particularly the emergence of Vision Transformer (ViT) models, there has been a notable shift in utilizing self-attention mechanisms to capture spatial relationships in images, previously dominated by convolutional neural networks (CNNs).
+## Overview
 
-This project focuses on leveraging deep learning methodologies to address the task of human action estimation. The primary objective is to develop a robust and efficient program capable of accurately recognizing and classifying a diverse range of human actions from sequences of images. The recognition of actions including walking, learning, and fitness. These kinds of routine-life movements hold immense potential for applications in fields like surveillance for abnormal behavior detection, healthcare for monitoring patient activities, and interactive systems for gesture-based control.
+This project focuses on Human Action Estimation, an essential task in computer vision, where the goal is to recognize and classify human actions from video data. The primary objective is to create a model capable of accurately identifying three main classes of human actions: `gym`, `walk`, and `work`.
 
-The project utilizes large-scale image datasets encompassing diverse human actions performed in various settings and environments. Vision Transformer architectures will be adapted and fine-tuned to process temporal sequences efficiently, leveraging techniques such as sequence embedding, positional encoding, and self-attention mechanisms to capture spatiotemporal features crucial for accurate action recognition.
+## Classes
 
-Moreover, this report aims to document the methodologies employed, challenges encountered, experimental configurations, ViT architectures, hyperparameter tuning strategies, and evaluation metrics used to assess the performance of the Vision Transformer-based models. Evaluation metrics will include accuracy, temporal consistency, and other performance indicators to provide insights into the ViT models' effectiveness and their applicability to human action recognition tasks.
+- **gym**: Represents actions related to exercising or workouts in a gym environment.
+- **walk**: Represents actions related to walking or strolling.
+- **work**: Represents actions associated with working or performing tasks.
 
-In conclusion, this research endeavors to investigate the potential and limitations of Vision Transformer models in the domain of human action recognition from image data. The outcomes and insights obtained aim to contribute to the advancement of deep learning methodologies for image analysis, specifically in understanding and classifying human actions for real-world applications.
+## Dataset
+
+The project utilizes a custom dataset curated to encompass diverse scenarios and variations within the `gym`, `walk`, and `work` classes. Each class contains a collection of video sequences capturing various instances of the corresponding human action.
+
+## Model Training
+
+### Model Architecture
+
+The Human Action Estimation model employed in this project is based on a Vision Transformer (ViT) architecture. The ViT model has been adapted and fine-tuned to process temporal sequences efficiently, leveraging self-attention mechanisms to capture spatiotemporal features crucial for accurate action recognition.
+
+### Hyperparameters
+
+- **Batch Size**: 128
+- **Epochs**: 100
+- **Learning Rate**: 0.001
+- **Patch Size**: 16
+- **Hidden Size**: 48
+- **Number of Hidden Layers**: 4
+- **Number of Attention Heads**: 4
+- **Intermediate Size**: 192
+- **Dropout Probability (Hidden)**: 0.0
+- **Dropout Probability (Attention)**: 0.0
+
+### Training Procedure
+
+The training process involves using the provided dataset split into training and testing sets. The model is trained for 100 epochs using the AdamW optimizer with a learning rate of 0.001. Training progress is monitored via training and testing loss, alongside accuracy metrics.
+
+## Usage
+
+To replicate the experiment:
+
+1. **Clone the Repository**:
+
+    ```bash
+    git clone https://github.com/YapWH1208/Image-Classification.git
+
+2. **Install Dependencies**:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3. **Prepare Data**:
+
+    Ensure the video dataset is placed in the appropriate directory (e.g., `/data`).
+
+4. **Run Training**:
+
+    ```bash
+    python train.py
+    ```
+
+## Results
+
+The trained model achieves significant accuracy in recognizing `gym`, `walk`, and `work` actions, as observed during evaluation on the testing set. Detailed results and performance metrics can be found in the associated experiment logs.
+
+## Contributing
+
+Contributions, issues, and feature requests are welcome. Feel free to open a pull request or report any bugs or suggestions in the Issues section.
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
