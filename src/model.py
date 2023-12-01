@@ -248,7 +248,6 @@ class ViT(nn.Module):
     num_attention_heads (int): Number of attention heads. Defaults to 4.
     hidden_dropout_prob (float): Dropout probability for hidden layers. Defaults to 0.0.
     attention_probs_dropout_prob (float): Dropout probability for attention. Defaults to 0.0.
-    initializer_range (float): Initializer range. Defaults to 0.02.
     num_channels (int): Number of channels. Defaults to 3(RGB).
     patch_size (int): Patch size. Defaults to 16.
     qkv_bias (bool, optional): Whether to use bias for query, key and value. Defaults to True.
@@ -257,7 +256,7 @@ class ViT(nn.Module):
     logits (Tensor): Tensor containing the logits
     """
     def __init__(self, image_size:int, hidden_size:int, num_hidden_layers:int, intermediate_size, num_classes:int, num_attention_heads:int=4, hidden_dropout_prob:float=0.0, 
-                 attention_probs_dropout_prob:float=0.0, initializer_range:float=0.02, num_channels:int=3, patch_size:int=16, qkv_bias:bool=True):
+                 attention_probs_dropout_prob:float=0.0, num_channels:int=3, patch_size:int=16, qkv_bias:bool=True):
         super(ViT, self).__init__()
         self.image_size = image_size
         self.hidden_size = hidden_size
