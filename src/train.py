@@ -178,7 +178,7 @@ class Trainer:
                         print(f"Early stopping after {epoch + 1} epochs.")
                         break
 
-                    if epoch % 10 == 0:
+                    if (epoch+1) % 10 == 0:
                         save_checkpoint(self.exp_name, self.model, epoch + 1)
 
         except KeyboardInterrupt:
@@ -211,6 +211,7 @@ def plot_metrics(train_losses, val_losses, accuracies):
     plt.legend()
 
     plt.tight_layout()
+    plt.savefig(os.path.join("experiments", exp_name, "metrics.png"))
     plt.show()
 
 def test(testloader, model, device):
