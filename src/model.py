@@ -227,7 +227,7 @@ class Embeddings(nn.Module):
 
     def forward(self, X):
         X = self.patch_embeddings(X)
-        batch_size, seq_length, _ = X.size()
+        batch_size, _, _ = X.size()
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
         X = torch.cat((cls_tokens, X), dim=1)
         X = X + self.position_embeddings
@@ -288,7 +288,8 @@ class ViT(nn.Module):
                                                           mean=0.0, 
                                                           std=initializer_range).to(module.cls_token.dtype)
 
+
 if __name__ == "__main__":
     model = ViT(224, 48, 4, 4 * 48, 3)
-    for name, param in model.named_parameters():
-        print(f"Parameter {name} is on device {param.device}")
+    # for name, param in model.named_parameters():
+    #     print(f"Parameter {name} is on device {param.device}")
