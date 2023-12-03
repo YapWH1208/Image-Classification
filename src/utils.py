@@ -20,20 +20,19 @@ def save_checkpoint(model, epoch:int, base_dir:str="experiments"):
     """
     outdir = os.path.join(base_dir, datetime.today().strftime('%Y-%m-%d'))
     os.makedirs(outdir, exist_ok=True)
-    cpfile = os.path.join(outdir, f'model_{epoch:.3f}.pt')
+    cpfile = os.path.join(outdir, f'model_{epoch:.3d}.pt')
     torch.save(model.state_dict(), cpfile)
 
 
 def set_logger(log_path):
-    """Set the logger to log info in terminal and file `log_path`.
-    In general, it is useful to have a logger so that every output to the terminal is saved
-    in a permanent file. Here we save it to `model_dir/train.log`.
-    Example:
-    ```
-    logging.info("Starting training...")
-    ```
+    """
+    Sets the logger to log info in terminal and file `log_path`.
+
     Args:
-        log_path: (string) where to log
+    log_path (str): Path to the log file.
+
+    Returns:
+    None
     """
     if os.path.exists(log_path) is True:
         os.remove(log_path)
@@ -53,6 +52,15 @@ def set_logger(log_path):
 
 
 def lastest_checkpoint(model_dir="./experiments"):
+    """
+    Get the latest checkpoint file from a directory
+
+    Args:
+    model_dir (str): Path to the directory containing the checkpoints
+
+    Returns:
+    checkpoint (str): Path to the latest checkpoint file
+    """
     files = [f for f in os.listdir(model_dir) if 'model' in f]
     files.sort(key=lambda x: int(re.findall(r'\d+', x)[0]))
     if len(files) == 0:

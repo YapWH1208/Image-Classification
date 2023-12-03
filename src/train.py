@@ -1,10 +1,14 @@
 import os
 import logging
 import warnings
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.autograd.profiler as profiler
 import matplotlib.pyplot as plt
+from time import time
 
 
 from model import ViT
@@ -22,12 +26,14 @@ class Trainer:
     loss_func (nn): Loss function used for training
     exp_name (str): Name of the experiment
     device (str): Device to use for training
+    scheduler (optim.lr_scheduler): Scheduler used for training
     """
-    def __init__(self, model, optimizer, loss_func:str, device:str):
+    def __init__(self, model, optimizer, loss_func:str, device:str, scheduler):
         self.model = model.to(device)
         self.optimizer = optimizer
         self.loss_func = loss_func
         self.device = device
+        self.scheduler = scheduler
 
 
     def train(self, trainloader, valloader, epochs: int, early_stop_patience: int = 5):
@@ -49,6 +55,7 @@ class Trainer:
 
         try:
             for epoch in range(epochs):
+                start = time()
                 train_loss = self.train_epoch(trainloader)
                 val_accuracy, val_loss = self.test(valloader)
 
@@ -56,7 +63,7 @@ class Trainer:
                 val_losses.append(val_loss)
                 accuracies.append(val_accuracy)
 
-                logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}")
+                logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {time() - start:.4f}")
 
                 # Check for early stopping
                 if val_loss < best_val_loss:
@@ -92,6 +99,7 @@ class Trainer:
         """
         self.model.train()
         total_loss = 0
+
         for batch in trainloader:
             batch = [t.to(self.device) for t in batch]
             images, labels = batch
@@ -101,8 +109,10 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item() * len(images)
+            self.scheduler.step()
+        
         return total_loss / len(trainloader.dataset)
-    
+
 
     @torch.no_grad()
     def test(self, testloader):
@@ -134,54 +144,6 @@ class Trainer:
         accuracy = correct / len(testloader.dataset)
         avg_loss = total_loss / len(testloader.dataset)
         return accuracy, avg_loss
-    
-
-    def continue_train(self, trainloader, valloader, epochs:int, early_stop_patience:int):
-        """
-        Continue training from a checkpoint
-
-        Args:
-        trainloader (DataLoader): DataLoader for training data
-        valloader (DataLoader): DataLoader for validation data
-        epochs (int): Number of epochs to train the model
-        early_stop_patience (int): Number of epochs to wait for improvement in validation loss before early stopping
-
-        Returns:
-        None
-        """
-        try:
-            train_losses, val_losses, accuracies = [], [], []
-            for i in range(epochs):
-                for epoch in range(epochs):
-                    train_loss = self.train_epoch(trainloader)
-                    val_accuracy, val_loss = self.test(valloader)
-
-                    train_losses.append(train_loss)
-                    val_losses.append(val_loss)
-                    accuracies.append(val_accuracy)
-
-                    logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}")
-
-                    # Check for early stopping
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
-                        patience_counter = 0
-                        save_checkpoint(self.model, epoch + 1)
-                        logging.info("-------- Saved Best Model! --------")
-                    else:
-                        patience_counter += 1
-                        logging.info("Early Stop Left: {}".format(early_stop_patience - patience_counter))
-
-                    if (early_stop_patience - patience_counter) == 0:
-                        logging.info("-------- Early Stop! --------")
-                        break
-
-        except KeyboardInterrupt:
-            logging.info("Keyboard interrupt detected. Saving the model...")
-            save_checkpoint(self.model, i+1)
-            logging.info("Model saved successfully.")
-        
-        return train_losses, val_losses, accuracies
 
 
 def plot_metrics(train_losses, val_losses, accuracies):
@@ -253,72 +215,10 @@ def test(testloader, model, device):
     return accuracy, avg_loss
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_dir = "./data/"
-log_path = os.path.join("experiments", "train.log")
-num_workers = 8
-
-batch_size = 128
-epochs = 100
-learning_rate = 1e-3
-patch_size = 16
-hidden_size = 48
-num_hidden_layers = 4
-num_attention_heads = 4
-intermediate_size = 4 * hidden_size
-hidden_dropout_prob = 0.0
-attention_probs_dropout_prob = 0.0
-image_size = 224
-num_channels = 3
-qkv_bias = True
-early_stop_patience = 5
-
-
-def main(continue_train:bool=False, test:bool=False):
-    if not test:
-        set_logger(log_path)
-        
-        logging.info("-------- Start Building Dataset! --------")
-        trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
-        logging.info("-------- Dataset Build! --------")
-
-        logging.info("-------- Start Building Model! --------")
-        model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
-        optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
-        loss_func = nn.CrossEntropyLoss()
-        trainer = Trainer(model, optimizer, loss_func, device)
-        logging.info("-------- Model Build! --------")
-
-        logging.info("-------- Start Training! --------")
-
-        if continue_train is False:
-            train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
-        else:
-            model_path = lastest_checkpoint()
-            model.load_state_dict(torch.load(model_path))
-            logging.info(f"-------- Load Model from {model_path}! --------")
-
-            train_losses, val_losses, accuracies = trainer.continue_train(trainloader, valloader, epochs, early_stop_patience)
-
-        logging.info("-------- Training Finished! --------")
-        logging.info("-------- Start Testing! --------")
-        accuracy, avg_loss = test(testloader, model, device)
-        logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
-        logging.info("-------- Testing Finished! --------")
-
-        plot_metrics(train_losses, val_losses, accuracies)
-    else:
-        model_path = lastest_checkpoint()
-        testloader, classes = prepare_test_data(data_dir, batch_size=batch_size, num_workers=num_workers)
-        model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
-        model.load_state_dict(torch.load(model_path))
-        accuracy, avg_loss = test_visualize(testloader, model, device)
-
-
 def test_visualize(model, device, testloader, classes):
-        """Visualize the predictions of the model"""
+        """
+        Visualize the predictions of the model
+        """
         model.eval()
         with torch.no_grad():
             for batch in testloader:
@@ -338,6 +238,120 @@ def test_visualize(model, device, testloader, classes):
                     plt.show()
 
 
+def setup_seed(seed=3407):
+	os.environ['PYTHONHASHSEED'] = str(seed)
+
+	torch.manual_seed(seed)
+	torch.cuda.manual_seed(seed)
+	torch.cuda.manual_seed_all(seed)
+
+	np.random.seed(seed)
+	random.seed(seed)
+
+	torch.backends.cudnn.deterministics = True
+	torch.backends.cudnn.benchmarks = False
+	torch.backends.cudnn.enabled = False
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+data_dir = "./data/"
+log_path = os.path.join("experiments", "train.log")
+num_workers = 0
+
+batch_size = 1280
+epochs = 1000
+learning_rate = 0.1
+patch_size = 16
+hidden_size = 48
+num_hidden_layers = 4
+num_attention_heads = 4
+intermediate_size = 4 * hidden_size
+hidden_dropout_prob = 0.0
+attention_probs_dropout_prob = 0.0
+image_size = 224
+num_channels = 3
+qkv_bias = True
+early_stop_patience = 5
+
+search_space = {
+    "learning_rate": [0.1,0.5,0.01,0.05,0.001,0.005],
+    "patch_size": [4,8,16,32],
+    "hidden_size": [24,48,96,192,3],
+    "num_hidden_layers": [4,6,8,12],
+    "num_attention_heads": [4,6,8,12],
+    "intermediate_size": [4 * hidden_size, 6 * hidden_size, 8 * hidden_size, 12 * hidden_size],
+    "hidden_dropout_prob": [0.0, 0.1, 0.2, 0.3, 0.4],
+    "attention_probs_dropout_prob": [0.0, 0.1, 0.2, 0.3, 0.4],
+}
+
+num_samples = 10
+random_sampler = torch.utils.data.RandomSampler(range(num_samples))
+
+def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./data/test"):
+    for i in range(len(num_samples)):
+        samples_params = {param: torch.randint(len(values), (1,)).item() for param, values in search_space.items()}
+
+        learning_rate = search_space["learning_rate"][samples_params["learning_rate"]]
+        patch_size = search_space["patch_size"][samples_params["patch_size"]]
+        hidden_size = search_space["hidden_size"][samples_params["hidden_size"]]
+        num_hidden_layers = search_space["num_hidden_layers"][samples_params["num_hidden_layers"]]
+        num_attention_heads = search_space["num_attention_heads"][samples_params["num_attention_heads"]]
+        intermediate_size = search_space["intermediate_size"][samples_params["intermediate_size"]]
+        hidden_dropout_prob = search_space["hidden_dropout_prob"][samples_params["hidden_dropout_prob"]]
+        attention_probs_dropout_prob = search_space["attention_probs_dropout_prob"][samples_params["attention_probs_dropout_prob"]]
+        if testing is False:
+            set_logger(log_path)
+
+
+            logging.info("-------- Start Building Dataset! --------")
+            trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+            logging.info("-------- Dataset Build! --------\n\n")
+
+
+            logging.info("-------- Start Building Model! --------")
+            model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                        attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+            optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
+            scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
+            loss_func = nn.CrossEntropyLoss()
+            trainer = Trainer(model, optimizer, loss_func, device, scheduler)
+            logging.info("-------- Model Build! --------\n\n")
+
+
+            logging.info("-------- Start Training! --------")
+            if continue_train is False:
+                train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
+            else:
+                model_path = lastest_checkpoint()
+                model.load_state_dict(torch.load(model_path))
+                logging.info(f"-------- Load Model from {model_path}! --------")
+
+                train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
+            logging.info("-------- Training Finished! --------\n\n")
+
+
+            logging.info("-------- Start Testing! --------")
+            accuracy, avg_loss = test(testloader, model, device)
+            logging.info(f"Sample {i}/{num_samples}: {samples_params}")
+            logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
+            logging.info("-------- Testing Finished! --------\n\n")
+
+
+            plot_metrics(train_losses, val_losses, accuracies)
+
+        else:
+            model_path = lastest_checkpoint()
+            testloader, classes = prepare_test_data(test_data_dir, batch_size=batch_size, num_workers=num_workers)
+            model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                        attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+            model.load_state_dict(torch.load(model_path))
+            accuracy, avg_loss = test_visualize(testloader, model, device)
+
+
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
-    main(continue_train=False, test=False)
+    setup_seed(42)
+    main(continue_train=False, testing=False, test_data_dir="./data/test")
+
+    # Shutdown the computer after training (Only used for AutoDL)
+    #os.system("/usr/bin/shutdown")
