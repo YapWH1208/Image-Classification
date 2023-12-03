@@ -1,13 +1,9 @@
 import torch
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
-
-from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
+from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-def prepare_data(root_dir: str, batch_size: int = 4, num_workers: int = 2, shuffle: bool = True, validation_split: float = 0.2):
+def prepare_data(root_dir: str, batch_size: int = 128, num_workers: int = 2, shuffle: bool = True, validation_split: float = 0.2):
     """
     Prepares the data for training, validation, and testing
 
@@ -26,27 +22,41 @@ def prepare_data(root_dir: str, batch_size: int = 4, num_workers: int = 2, shuff
     """
 
     # Define the transformations
-    transform = transforms.Compose([
-        transforms.ToTensor(),
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0), ratio=(0.75, 1.333)),
         transforms.Resize((224, 224), antialias=True),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.ToTensor(),
+    ])
+    transform = transforms.Compose([
+        transforms.Resize((224, 224), antialias=True),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.ToTensor()
     ])
 
     # Load the dataset
-    dataset = ImageFolder(root_dir, transform)
+    dataset = ImageFolder(root_dir)
 
     # Calculate the sizes of training, validation, and test sets
     dataset_size = len(dataset)
-    val_size = int(validation_split * dataset_size)
-    train_size = dataset_size - val_size
+    train_size = int(0.7 * dataset_size)
+    val_size = int(0.1 * dataset_size)
+    test_size = dataset_size - train_size - val_size
 
     # Split the dataset into training, validation, and test sets
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size])
+
+    train_dataset.dataset.transform = train_transform
+    val_dataset.dataset.transform = transform
+    test_dataset.dataset.transform = transform
 
     # Create DataLoader for training, validation, and test sets
     trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     valloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    testloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return trainloader, valloader, testloader, dataset.classes
 
