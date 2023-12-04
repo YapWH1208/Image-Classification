@@ -325,9 +325,11 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
         model.load_state_dict(torch.load(model_path))
         accuracy, avg_loss = test_visualize(testloader, model, device)
 
+
 def objective(trial):
     set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
 
+    epochs = trial.suggest_int('epochs', 10, 1000)
     learning_rate = trial.suggest_loguniform("learning_rate", 0.001, 0.01)
     patch_size = trial.suggest_categorical("patch_size", [16, 32])
     hidden_size = trial.suggest_categorical("hidden_size", [32, 48, 64])
@@ -353,6 +355,9 @@ def objective(trial):
 
         logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {time() - start:.4f}")
 
+    accuracy, val_loss = trainer.test(testloader)
+    logging.info(f"Test loss: {val_loss:.4f}, Test accuracy: {accuracy:.4f}")
+
     return val_loss
 
 
@@ -363,9 +368,13 @@ if __name__ == "__main__":
 
     study = optuna.create_study(direction="minimize")
     study.optimize(objective, n_trials=50)
-    print(study.best_params)
-    print(study.best_value)
-    print(study.best_trial)
+    print('Best trial:')
+    trial = study.best_trial
+
+    print('Value: {}'.format(trial.value))
+    print('Params: ')
+    for key, value in trial.params.items():
+        print('{}: {}'.format(key, value))
 
     # Shutdown the computer after training (Only used for AutoDL)
     #os.system("/usr/bin/shutdown")
