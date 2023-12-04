@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 
 
-def save_checkpoint(model, epoch:int, base_dir:str="experiments"):
+def save_checkpoint(model, epoch:int, outdir:str):
     """
     Saves the model checkpoint
 
@@ -18,9 +18,8 @@ def save_checkpoint(model, epoch:int, base_dir:str="experiments"):
     Returns:
     None
     """
-    outdir = os.path.join(base_dir, datetime.today().strftime('%Y-%m-%d'))
     os.makedirs(outdir, exist_ok=True)
-    cpfile = os.path.join(outdir, f'model_{epoch:.3d}.pt')
+    cpfile = os.path.join(outdir, f'model_{epoch:3d}.pt')
     torch.save(model.state_dict(), cpfile)
 
 
