@@ -2,13 +2,14 @@ import os
 import logging
 import warnings
 import random
+import optuna
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.autograd.profiler as profiler
 import matplotlib.pyplot as plt
 from time import time
+from datetime import datetime
 
 
 from model import ViT
@@ -49,11 +50,13 @@ class Trainer:
         Returns:
         None
         """
-        train_losses, val_losses, accuracies = [], [], [], []
+        train_losses, val_losses, accuracies = [], [], []
         best_val_loss = float('inf')
         patience_counter = 0
 
         try:
+            outdir = os.path.join("experiments", datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+
             for epoch in range(epochs):
                 start = time()
                 train_loss = self.train_epoch(trainloader)
@@ -69,7 +72,7 @@ class Trainer:
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     patience_counter = 0
-                    save_checkpoint(self.model, epoch + 1)
+                    save_checkpoint(self.model, epoch + 1, outdir)
                     logging.info("-------- Saved Best Model! --------")
                 else:
                     patience_counter += 1
@@ -81,7 +84,7 @@ class Trainer:
 
         except KeyboardInterrupt:
             logging.info("Keyboard interrupt detected. Saving the model...")
-            save_checkpoint(self.model, epoch + 1)
+            save_checkpoint(self.model, epoch + 1, outdir)
             logging.info("Model saved successfully.")
 
         return train_losses, val_losses, accuracies
@@ -123,7 +126,8 @@ class Trainer:
         testloader (DataLoader): DataLoader for testing data
 
         Returns:
-        None
+        accuracy (float): Accuracy of the model
+        avg_loss (float): Average loss of the model
         """
         self.model.eval()
         total_loss = 0
@@ -255,7 +259,7 @@ def setup_seed(seed=3407):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 data_dir = "./data/"
-log_path = os.path.join("experiments", "train.log")
+log_path = os.path.join("experiments", "train_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
 num_workers = 0
 
 batch_size = 1280
@@ -273,85 +277,95 @@ num_channels = 3
 qkv_bias = True
 early_stop_patience = 5
 
-search_space = {
-    "learning_rate": [0.1,0.5,0.01,0.05,0.001,0.005],
-    "patch_size": [4,8,16,32],
-    "hidden_size": [24,48,96,192,3],
-    "num_hidden_layers": [4,6,8,12],
-    "num_attention_heads": [4,6,8,12],
-    "intermediate_size": [4 * hidden_size, 6 * hidden_size, 8 * hidden_size, 12 * hidden_size],
-    "hidden_dropout_prob": [0.0, 0.1, 0.2, 0.3, 0.4],
-    "attention_probs_dropout_prob": [0.0, 0.1, 0.2, 0.3, 0.4],
-}
-
-num_samples = 10
-random_sampler = torch.utils.data.RandomSampler(range(num_samples))
 
 def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./data/test"):
-    for i in range(len(num_samples)):
-        samples_params = {param: torch.randint(len(values), (1,)).item() for param, values in search_space.items()}
+    if testing is False:
+        set_logger(log_path)
 
-        learning_rate = search_space["learning_rate"][samples_params["learning_rate"]]
-        patch_size = search_space["patch_size"][samples_params["patch_size"]]
-        hidden_size = search_space["hidden_size"][samples_params["hidden_size"]]
-        num_hidden_layers = search_space["num_hidden_layers"][samples_params["num_hidden_layers"]]
-        num_attention_heads = search_space["num_attention_heads"][samples_params["num_attention_heads"]]
-        intermediate_size = search_space["intermediate_size"][samples_params["intermediate_size"]]
-        hidden_dropout_prob = search_space["hidden_dropout_prob"][samples_params["hidden_dropout_prob"]]
-        attention_probs_dropout_prob = search_space["attention_probs_dropout_prob"][samples_params["attention_probs_dropout_prob"]]
-        if testing is False:
-            set_logger(log_path)
+        logging.info("-------- Start Building Dataset! --------")
+        trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+        logging.info("-------- Dataset Build! --------\n\n")
 
 
-            logging.info("-------- Start Building Dataset! --------")
-            trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
-            logging.info("-------- Dataset Build! --------\n\n")
+        logging.info("-------- Start Building Model! --------")
+        model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+        optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
+        scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
+        loss_func = nn.CrossEntropyLoss()
+        trainer = Trainer(model, optimizer, loss_func, device, scheduler)
+        logging.info("-------- Model Build! --------\n\n")
 
 
-            logging.info("-------- Start Building Model! --------")
-            model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                        attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
-            optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
-            scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
-            loss_func = nn.CrossEntropyLoss()
-            trainer = Trainer(model, optimizer, loss_func, device, scheduler)
-            logging.info("-------- Model Build! --------\n\n")
-
-
-            logging.info("-------- Start Training! --------")
-            if continue_train is False:
-                train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
-            else:
-                model_path = lastest_checkpoint()
-                model.load_state_dict(torch.load(model_path))
-                logging.info(f"-------- Load Model from {model_path}! --------")
-
-                train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
-            logging.info("-------- Training Finished! --------\n\n")
-
-
-            logging.info("-------- Start Testing! --------")
-            accuracy, avg_loss = test(testloader, model, device)
-            logging.info(f"Sample {i}/{num_samples}: {samples_params}")
-            logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
-            logging.info("-------- Testing Finished! --------\n\n")
-
-
-            plot_metrics(train_losses, val_losses, accuracies)
-
+        logging.info("-------- Start Training! --------")
+        if continue_train is False:
+            train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
         else:
             model_path = lastest_checkpoint()
-            testloader, classes = prepare_test_data(test_data_dir, batch_size=batch_size, num_workers=num_workers)
-            model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                        attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
             model.load_state_dict(torch.load(model_path))
-            accuracy, avg_loss = test_visualize(testloader, model, device)
+            logging.info(f"-------- Load Model from {model_path}! --------")
+
+            train_losses, val_losses, accuracies = trainer.train(trainloader, valloader, epochs, early_stop_patience)
+        logging.info("-------- Training Finished! --------\n\n")
+
+
+        logging.info("-------- Start Testing! --------")
+        accuracy, avg_loss = test(testloader, model, device)
+        logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
+        logging.info("-------- Testing Finished! --------\n\n")
+
+
+        plot_metrics(train_losses, val_losses, accuracies)
+
+    else:
+        model_path = lastest_checkpoint()
+        testloader, classes = prepare_test_data(test_data_dir, batch_size=batch_size, num_workers=num_workers)
+        model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+        model.load_state_dict(torch.load(model_path))
+        accuracy, avg_loss = test_visualize(testloader, model, device)
+
+def objective(trial):
+    set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
+
+    learning_rate = trial.suggest_loguniform("learning_rate", 0.001, 0.01)
+    patch_size = trial.suggest_categorical("patch_size", [16, 32])
+    hidden_size = trial.suggest_categorical("hidden_size", [32, 48, 64])
+    num_hidden_layers = trial.suggest_categorical("num_hidden_layers", [2, 4, 6])
+    num_attention_heads = trial.suggest_categorical("num_attention_heads", [2, 4, 6])
+    hidden_dropout_prob = trial.suggest_uniform("hidden_dropout_prob", 0.0, 0.5)
+    attention_probs_dropout_prob = trial.suggest_uniform("attention_probs_dropout_prob", 0.0, 0.5)
+
+    intermediate_size = 4 * hidden_size
+
+    trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+    model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
+                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
+    loss_func = nn.CrossEntropyLoss()
+    trainer = Trainer(model, optimizer, loss_func, device, scheduler)
+
+    for epoch in range(epochs):
+        start = time()
+        train_loss = trainer.train_epoch(trainloader)
+        val_accuracy, val_loss = trainer.test(valloader)
+
+        logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {time() - start:.4f}")
+
+    return val_loss
 
 
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     setup_seed(42)
-    main(continue_train=False, testing=False, test_data_dir="./data/test")
+    #main(continue_train=False, testing=False, test_data_dir="./data/test")
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=50)
+    print(study.best_params)
+    print(study.best_value)
+    print(study.best_trial)
 
     # Shutdown the computer after training (Only used for AutoDL)
     #os.system("/usr/bin/shutdown")
