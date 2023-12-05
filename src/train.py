@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.autograd import profiler
 import matplotlib.pyplot as plt
 from time import time
 from datetime import datetime
@@ -186,39 +187,6 @@ def plot_metrics(train_losses, val_losses, accuracies):
     plt.show()
 
 
-def test(testloader, model, device):
-    """
-    Testing function for the model
-
-    Args:
-    testloader (DataLoader): DataLoader for testing data
-    model (ViT): The model used for the experiment
-    device (str): Device to use for training
-
-    Returns:
-    None
-    """
-    model.eval()
-    total_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for batch in testloader:
-            batch = [t.to(device) for t in batch]
-            images, labels = batch
-
-            logits = model(images)
-
-            loss = nn.CrossEntropyLoss()(logits, labels)
-            total_loss += loss.item() * len(images)
-
-            # Calculate the accuracy
-            predictions = torch.argmax(logits, dim=1)
-            correct += torch.sum(predictions == labels).item()
-    accuracy = correct / len(testloader.dataset)
-    avg_loss = total_loss / len(testloader.dataset)
-    return accuracy, avg_loss
-
-
 def test_visualize(model, device, testloader, classes):
         """
         Visualize the predictions of the model
@@ -260,10 +228,10 @@ def setup_seed(seed=3407):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 data_dir = "./data/"
 log_path = os.path.join("experiments", "train_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
-num_workers = 0
+num_workers = 16
 
 batch_size = 1280
-epochs = 1000
+epochs = 1
 learning_rate = 0.1
 patch_size = 16
 hidden_size = 48
@@ -289,7 +257,7 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
 
         logging.info("-------- Start Building Model! --------")
         model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias).to(device)
         optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
         scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
         loss_func = nn.CrossEntropyLoss()
@@ -310,7 +278,7 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
 
 
         logging.info("-------- Start Testing! --------")
-        accuracy, avg_loss = test(testloader, model, device)
+        accuracy, avg_loss = Trainer.test(testloader, model, device)
         logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
         logging.info("-------- Testing Finished! --------\n\n")
 
@@ -329,7 +297,7 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
 def objective(trial):
     set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
 
-    epochs = trial.suggest_int('epochs', 10, 1000)
+    #epochs = trial.suggest_int('epochs', 10, 1000)
     learning_rate = trial.suggest_loguniform("learning_rate", 0.001, 0.01)
     patch_size = trial.suggest_categorical("patch_size", [16, 32])
     hidden_size = trial.suggest_categorical("hidden_size", [32, 48, 64])
@@ -340,23 +308,35 @@ def objective(trial):
 
     intermediate_size = 4 * hidden_size
 
+    logging.info("-------- Start Building Dataset! --------")
     trainloader, valloader, testloader, classes = prepare_data(data_dir, batch_size=batch_size, num_workers=num_workers)
+    logging.info("-------- Dataset Build! --------\n\n")
+
     model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
-                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
+                    attention_probs_dropout_prob, num_channels, patch_size, qkv_bias).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, device, scheduler)
 
-    for epoch in range(epochs):
-        start = time()
-        train_loss = trainer.train_epoch(trainloader)
-        val_accuracy, val_loss = trainer.test(valloader)
+    with profiler.profile(record_shapes=True, use_cuda=True) as prof:
+        for epoch in range(epochs):
+            start = time()
+            train_loss = trainer.train_epoch(trainloader)
+            end = time()
+            val_accuracy, val_loss = trainer.test(valloader)
 
-        logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {time() - start:.4f}")
+            logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {end - start:.4f}")
+
+            # Monitor GPU memory usage
+            current_memory = torch.cuda.memory_allocated(device)
+            max_memory = torch.cuda.max_memory_allocated(device)
+            logging.info(f"GPU Memory - Current: {current_memory / (1024 ** 3):.4f} GB, Max: {max_memory / (1024 ** 3):.4f} GB")
 
     accuracy, val_loss = trainer.test(testloader)
     logging.info(f"Test loss: {val_loss:.4f}, Test accuracy: {accuracy:.4f}")
+
+    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
     return val_loss
 
@@ -367,7 +347,7 @@ if __name__ == "__main__":
     #main(continue_train=False, testing=False, test_data_dir="./data/test")
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=1)
     print('Best trial:')
     trial = study.best_trial
 
