@@ -113,7 +113,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item() * len(images)
-            self.scheduler.step()
+            self.scheduler.step(loss)
         
         return total_loss / len(trainloader.dataset)
 
@@ -226,12 +226,12 @@ def setup_seed(seed=3407):
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_dir = "./data/"
+data_dir = "./data/resized/"
 log_path = os.path.join("experiments", "train_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
-num_workers = 16
+num_workers = 0
 
 batch_size = 1280
-epochs = 1
+epochs = 2
 learning_rate = 0.1
 patch_size = 16
 hidden_size = 48
@@ -315,7 +315,7 @@ def objective(trial):
     model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
                     attention_probs_dropout_prob, num_channels, patch_size, qkv_bias).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, device, scheduler)
 
