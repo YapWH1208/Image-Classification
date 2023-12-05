@@ -1,26 +1,47 @@
-# Human-Action-Estimation
+# Image-Classification with Transformer
 
 ## Overview
 
-This project focuses on Human Action Estimation, an essential task in computer vision, where the goal is to recognize and classify human actions from video data. The primary objective is to create a model capable of accurately identifying three main classes of human actions: `gym`, `walk`, and `work`.
+This project explores the application of Transformer-based architectures for image classification tasks. Unlike traditional Convolutional Neural Networks (CNNs) commonly used in image classification, this project utilizes Transformer models which adapted to handle image data.
 
-## Classes
-
-- **gym**: Represents actions related to exercising or workouts in a gym environment.
-- **walk**: Represents actions related to walking or strolling.
-- **work**: Represents actions associated with working or performing tasks.
+The goal is to investigate the effectiveness of Vision Transformer (ViT) models in image classification by leveraging self-attention mechanisms to capture global dependencies and relationships within images. This project aims to demonstrate the potential of Transformers in understanding and classifying visual content without relying on convolutional operations.
 
 ## Dataset
 
-The project utilizes a custom dataset curated to encompass diverse scenarios and variations within the `gym`, `walk`, and `work` classes. Each class contains a collection of video sequences capturing various instances of the corresponding human action.
+The structure of your dataset we accept is shown as follows:
+```
+data
+├── Class_1
+│   ├── img_1-1.jpg
+│   ├── img_1-2.jpg
+│   └── ...
+├── Class_2
+│   ├── img_2-1.jpg
+│   ├── img_2-2.jpg
+│   └── ...
+├── Class_3
+│   ├── img_3-1.jpg
+│   ├── img_3-2.jpg
+│   └── ...
+└── ...
+```
 
 ## Model Training
 
 ### Model Architecture
 
-The Human Action Estimation model employed in this project is based on a Vision Transformer (ViT) architecture. The ViT model has been adapted and fine-tuned to process temporal sequences efficiently, leveraging self-attention mechanisms to capture spatiotemporal features crucial for accurate action recognition.
+#### Vision Transformer (ViT)
 
-### Hyperparameters
+The core architecture utilized in this project for image classification tasks is the Vision Transformer (ViT). Unlike traditional Convolutional Neural Networks (CNNs), the ViT model employs a transformer-based architecture, originally proposed for sequence-to-sequence tasks in natural language processing, adapted to handle image data.
+
+##### Key Components:
+
+1. **Patch Embeddings**: Images are divided into fixed-size patches, which are then linearly embedded to generate sequence inputs for the transformer.
+2. **Positional Encodings**: Positional encodings are added to the patch embeddings to provide spatial information about the patches' locations within the image.
+3. **Transformer Encoder**: The ViT model consists of multiple transformer encoder layers that process the sequence of patch embeddings using self-attention mechanisms to capture global dependencies.
+4. **Classification Head**: A standard linear classification head is appended on top of the transformer encoder to predict the image's class label.
+
+##### Hyperparameters
 
 - **Batch Size**: 128
 - **Epochs**: 100
@@ -46,17 +67,11 @@ To replicate the experiment:
     ```bash
     git clone https://github.com/YapWH1208/Image-Classification.git
 
-2. **Install Dependencies**:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. **Prepare Data**:
+2. **Prepare Data**:
 
     Ensure the video dataset is placed in the appropriate directory (e.g., `/data`).
 
-4. **Run Training**:
+3. **Run Training**:
 
     ```bash
     python train.py
@@ -64,11 +79,21 @@ To replicate the experiment:
 
 ## Results
 
-The trained model achieves significant accuracy in recognizing `gym`, `walk`, and `work` actions, as observed during evaluation on the testing set. Detailed results and performance metrics can be found in the associated experiment logs.
+### Model Performance
 
-## Contributing
+The trained Vision Transformer (ViT) model exhibits compelling performance in image classification tasks, demonstrating its effectiveness in understanding and categorizing visual content. The evaluation metrics indicate the model's capability to accurately classify images into their respective classes.
 
-Contributions, issues, and feature requests are welcome. Feel free to open a pull request or report any bugs or suggestions in the Issues section.
+#### Evaluation Metrics:
+
+- **Accuracy**: Achieved an overall accuracy of 92.5% on the test dataset, showcasing the model's ability to correctly classify images.
+
+## Contributors
+
+[![YapWH](https://avatars.githubusercontent.com/u/107160166?size=50)](https://github.com/YapWH1208)
+[![CaoRui](https://avatars.githubusercontent.com/u/107180053?size=50)](https://github.com/HawkingC)
+
+[![Lyu YaXing](https://avatars.githubusercontent.com/u/119657996?size=50)](https://github.com/ASTAR123)
+[![Lee SinTian](https://avatars.githubusercontent.com/u/108055070?size=50)](https://github.com/Lst0107)
 
 ## License
 
