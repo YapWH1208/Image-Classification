@@ -58,7 +58,7 @@ def prepare_test_data(root_dir: str, batch_size: int = 4, num_workers: int = 2):
     # Define the transformations
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Resize((224, 224), antialias=True),
+        transforms.RandomResizedCrop((224, 224), antialias=True, scale=(0.8, 1.0), ratio=(0.8, 1.2), interpolation=cv2.INTER_CUBIC),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
