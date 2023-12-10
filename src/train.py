@@ -319,24 +319,22 @@ def objective(trial):
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, device, scheduler)
 
-    with profiler.profile(record_shapes=True, use_cuda=True) as prof:
-        for epoch in range(epochs):
-            start = time()
-            train_loss = trainer.train_epoch(trainloader)
-            end = time()
-            val_accuracy, val_loss = trainer.test(valloader)
+    
+    for epoch in range(epochs):
+        start = time()
+        train_loss = trainer.train_epoch(trainloader)
+        end = time()
+        val_accuracy, val_loss = trainer.test(valloader)
 
-            logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {end - start:.4f}")
+        logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {end - start:.4f}")
 
-            # Monitor GPU memory usage
-            current_memory = torch.cuda.memory_allocated(device)
-            max_memory = torch.cuda.max_memory_allocated(device)
-            logging.info(f"GPU Memory - Current: {current_memory / (1024 ** 3):.4f} GB, Max: {max_memory / (1024 ** 3):.4f} GB")
+        # Monitor GPU memory usage
+        current_memory = torch.cuda.memory_allocated(device)
+        max_memory = torch.cuda.max_memory_allocated(device)
+        logging.info(f"GPU Memory - Current: {current_memory / (1024 ** 3):.4f} GB, Max: {max_memory / (1024 ** 3):.4f} GB")
 
     accuracy, val_loss = trainer.test(testloader)
     logging.info(f"Test loss: {val_loss:.4f}, Test accuracy: {accuracy:.4f}")
-
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
     return val_loss
 
@@ -344,17 +342,18 @@ def objective(trial):
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     setup_seed(42)
-    #main(continue_train=False, testing=False, test_data_dir="./data/test")
+    main(continue_train=False, testing=False, test_data_dir="./data/test")
 
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=1)
-    print('Best trial:')
-    trial = study.best_trial
+    # SMBO for hyperparameter tuning
+    # study = optuna.create_study(direction="minimize")
+    # study.optimize(objective, n_trials=1)
+    # print('Best trial:')
+    # trial = study.best_trial
 
-    print('Value: {}'.format(trial.value))
-    print('Params: ')
-    for key, value in trial.params.items():
-        print('{}: {}'.format(key, value))
+    # print('Value: {}'.format(trial.value))
+    # print('Params: ')
+    # for key, value in trial.params.items():
+    #     print('{}: {}'.format(key, value))
 
-    # Shutdown the computer after training (Only used for AutoDL)
+    # Shutdown the computer after training
     #os.system("/usr/bin/shutdown")
