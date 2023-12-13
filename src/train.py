@@ -228,12 +228,12 @@ def setup_seed(seed=3407):
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_dir = "./data/"
+data_dir = "./data/resized/"
 log_path = os.path.join("experiments", "train_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
 num_workers = 0
 
 batch_size = 1280
-epochs = 2
+epochs = 80
 learning_rate = 0.001
 patch_size = 16
 hidden_size = 64
