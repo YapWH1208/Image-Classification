@@ -83,6 +83,8 @@ class Trainer:
                     logging.info("-------- Early Stop! --------")
                     break
 
+            save_checkpoint(self.model, epochs, outdir)
+
         except KeyboardInterrupt:
             logging.info("Keyboard interrupt detected. Saving the model...")
             save_checkpoint(self.model, epoch + 1, outdir)
@@ -226,20 +228,20 @@ def setup_seed(seed=3407):
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_dir = "./data/resized/"
+data_dir = "./data/"
 log_path = os.path.join("experiments", "train_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
 num_workers = 0
 
 batch_size = 1280
 epochs = 2
-learning_rate = 0.1
+learning_rate = 0.001
 patch_size = 16
-hidden_size = 48
-num_hidden_layers = 4
-num_attention_heads = 4
+hidden_size = 64
+num_hidden_layers = 2
+num_attention_heads = 3
 intermediate_size = 4 * hidden_size
-hidden_dropout_prob = 0.0
-attention_probs_dropout_prob = 0.0
+hidden_dropout_prob = 0.04107314717204764
+attention_probs_dropout_prob = 0.12206211476886523
 image_size = 224
 num_channels = 3
 qkv_bias = True
@@ -259,7 +261,7 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
         model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
                     attention_probs_dropout_prob, num_channels, patch_size, qkv_bias).to(device)
         optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
-        scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=True)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
         loss_func = nn.CrossEntropyLoss()
         trainer = Trainer(model, optimizer, loss_func, device, scheduler)
         logging.info("-------- Model Build! --------\n\n")
@@ -278,7 +280,7 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
 
 
         logging.info("-------- Start Testing! --------")
-        accuracy, avg_loss = Trainer.test(testloader, model, device)
+        accuracy, avg_loss = trainer.test(testloader)
         logging.info(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
         logging.info("-------- Testing Finished! --------\n\n")
 
@@ -295,14 +297,13 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
 
 
 def objective(trial):
-    set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
-
-    #epochs = trial.suggest_int('epochs', 10, 1000)
+    
+    epochs = trial.suggest_int('epochs', 10, 250)
     learning_rate = trial.suggest_loguniform("learning_rate", 0.001, 0.01)
     patch_size = trial.suggest_categorical("patch_size", [16, 32])
     hidden_size = trial.suggest_categorical("hidden_size", [32, 48, 64])
-    num_hidden_layers = trial.suggest_categorical("num_hidden_layers", [2, 4, 6])
-    num_attention_heads = trial.suggest_categorical("num_attention_heads", [2, 4, 6])
+    num_hidden_layers = trial.suggest_int("num_hidden_layers", 2, 5)
+    num_attention_heads = trial.suggest_int("num_attention_heads", 2, 5)
     hidden_dropout_prob = trial.suggest_uniform("hidden_dropout_prob", 0.0, 0.5)
     attention_probs_dropout_prob = trial.suggest_uniform("attention_probs_dropout_prob", 0.0, 0.5)
 
@@ -319,7 +320,6 @@ def objective(trial):
     loss_func = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_func, device, scheduler)
 
-    
     for epoch in range(epochs):
         start = time()
         train_loss = trainer.train_epoch(trainloader)
@@ -327,11 +327,6 @@ def objective(trial):
         val_accuracy, val_loss = trainer.test(valloader)
 
         logging.info(f"Epoch: {epoch + 1}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}, Val accuracy: {val_accuracy:.4f}, Time: {end - start:.4f}")
-
-        # Monitor GPU memory usage
-        current_memory = torch.cuda.memory_allocated(device)
-        max_memory = torch.cuda.max_memory_allocated(device)
-        logging.info(f"GPU Memory - Current: {current_memory / (1024 ** 3):.4f} GB, Max: {max_memory / (1024 ** 3):.4f} GB")
 
     accuracy, val_loss = trainer.test(testloader)
     logging.info(f"Test loss: {val_loss:.4f}, Test accuracy: {accuracy:.4f}")
@@ -342,18 +337,21 @@ def objective(trial):
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     setup_seed(42)
-    main(continue_train=False, testing=False, test_data_dir="./data/test")
+    # with torch.autograd.profiler.profile(enabled=True, use_cuda=True) as prof:
+    #     main(continue_train=False, testing=False)
+    # print(prof.key_averages().table(sort_by="cuda_time_total"))
+    main(continue_train=False, testing=True, test_data_dir="./data/test/resized/")
+    
+#     set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
+#     study = optuna.create_study(direction="minimize")
+#     study.optimize(objective, n_trials=50)
+#     logging.info('Best trial:')
+#     trial = study.best_trial
 
-    # SMBO for hyperparameter tuning
-    # study = optuna.create_study(direction="minimize")
-    # study.optimize(objective, n_trials=1)
-    # print('Best trial:')
-    # trial = study.best_trial
+#     logging.info('Value: {}'.format(trial.value))
+#     logging.info('Params: ')
+#     for key, value in trial.params.items():
+#         logging.info('{}: {}'.format(key, value))
 
-    # print('Value: {}'.format(trial.value))
-    # print('Params: ')
-    # for key, value in trial.params.items():
-    #     print('{}: {}'.format(key, value))
-
-    # Shutdown the computer after training
+    # Shutdown the computer after training (Only used for AutoDL)
     #os.system("/usr/bin/shutdown")
