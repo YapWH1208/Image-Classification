@@ -91,11 +91,18 @@ The trained Vision Transformer (ViT) model exhibits compelling performance in im
 
 ## Contributors
 
-[![YapWH](https://avatars.githubusercontent.com/u/107160166?size=50)](https://github.com/YapWH1208)
-[![CaoRui](https://avatars.githubusercontent.com/u/107180053?size=50)](https://github.com/HawkingC)
-
-[![Lyu YaXing](https://avatars.githubusercontent.com/u/119657996?size=50)](https://github.com/ASTAR123)
-[![Lee SinTian](https://avatars.githubusercontent.com/u/108055070?size=50)](https://github.com/Lst0107)
+<a href="https://github.com/YapWH1208">
+  <img src="https://avatars.githubusercontent.com/u/107160166" alt="YapWH" width="50" height="50">
+</a>
+<a href="https://github.com/HawkingC">
+  <img src="https://avatars.githubusercontent.com/u/107180053" alt="CaoRui" width="50" height="50">
+</a>
+<a href="https://github.com/ASTAR123">
+  <img src="https://avatars.githubusercontent.com/u/119657996" alt="ASTAR123" width="50" height="50">
+</a>
+<a href="https://github.com/Lst0107">
+  <img src="https://avatars.githubusercontent.com/u/108055070" alt="Lst0107" width="50" height="50">
+</a>
 
 ## License
 
