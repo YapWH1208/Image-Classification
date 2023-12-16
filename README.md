@@ -42,21 +42,22 @@ The core architecture utilized in this project for image classification tasks is
 4. **Classification Head**: A standard linear classification head is appended on top of the transformer encoder to predict the image's class label.
 
 ##### Hyperparameters
+> Only for reference in case of 3 classes with 1000+ images in total
 
-- **Batch Size**: 128
-- **Epochs**: 100
+- **Batch Size**: 1280
+- **Epochs**: 80
 - **Learning Rate**: 0.001
 - **Patch Size**: 16
-- **Hidden Size**: 48
-- **Number of Hidden Layers**: 4
-- **Number of Attention Heads**: 4
-- **Intermediate Size**: 192
-- **Dropout Probability (Hidden)**: 0.0
-- **Dropout Probability (Attention)**: 0.0
+- **Hidden Size**: 64
+- **Number of Hidden Layers**: 2
+- **Number of Attention Heads**: 3
+- **Intermediate Size**: 256
+- **Dropout Probability (Hidden)**: 0.04
+- **Dropout Probability (Attention)**: 0.12
 
 ### Training Procedure
 
-The training process involves using the provided dataset split into training and testing sets. The model is trained for 100 epochs using the AdamW optimizer with a learning rate of 0.001. Training progress is monitored via training and testing loss, alongside accuracy metrics.
+The training process involves using the provided dataset split into training and testing sets. The model is trained for 80 epochs using the AdamW optimizer with a learning rate of 0.001. Training progress is monitored via training and testing loss, alongside accuracy metrics.
 
 ## Usage
 
@@ -85,7 +86,7 @@ The trained Vision Transformer (ViT) model exhibits compelling performance in im
 
 #### Evaluation Metrics:
 
-- **Accuracy**: Achieved an overall accuracy of 92.5% on the test dataset, showcasing the model's ability to correctly classify images.
+- **Accuracy**: Achieved an overall accuracy of 80.5% on the test dataset, showcasing the model's ability to correctly classify images.
 
 ## Contributors
 
