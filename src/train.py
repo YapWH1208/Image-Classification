@@ -337,11 +337,13 @@ def objective(trial):
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     setup_seed(42)
+    # Profiling for time analysis
     # with torch.autograd.profiler.profile(enabled=True, use_cuda=True) as prof:
     #     main(continue_train=False, testing=False)
     # print(prof.key_averages().table(sort_by="cuda_time_total"))
     main(continue_train=False, testing=True, test_data_dir="./data/test/resized/")
-    
+
+# SMBO Hyperparameter Searching
 #     set_logger(os.path.join("experiments", "best_param_" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"))
 #     study = optuna.create_study(direction="minimize")
 #     study.optimize(objective, n_trials=50)
@@ -352,6 +354,3 @@ if __name__ == "__main__":
 #     logging.info('Params: ')
 #     for key, value in trial.params.items():
 #         logging.info('{}: {}'.format(key, value))
-
-    # Shutdown the computer after training (Only used for AutoDL)
-    #os.system("/usr/bin/shutdown")
