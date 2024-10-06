@@ -189,6 +189,27 @@ def plot_metrics(train_losses, val_losses, accuracies):
     plt.show()
 
 
+@torch.no_grad()
+def test(model, device, testloader, classes, loss_func):
+    model.eval()
+    total_loss = 0
+    correct = 0
+    for batch in testloader:
+        batch = [t.to(device) for t in batch]
+        images, labels = batch
+
+        logits = model(images)
+        loss = loss_func(logits, labels)
+
+        predictions = torch.argmax(logits, dim=1)
+        correct += torch.sum(predictions == labels).item()
+        total_loss += loss.item()
+    
+    accuracy = correct / len(testloader.dataset)
+    avg_loss = total_loss / len(testloader.dataset)
+    return accuracy, avg_loss
+
+
 def test_visualize(model, device, testloader, classes):
         """
         Visualize the predictions of the model
