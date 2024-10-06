@@ -190,7 +190,7 @@ def plot_metrics(train_losses, val_losses, accuracies):
 
 
 @torch.no_grad()
-def test(model, device, testloader, classes, loss_func):
+def test(model, device, testloader, loss_func):
     model.eval()
     total_loss = 0
     correct = 0
@@ -309,12 +309,15 @@ def main(continue_train:bool=False, testing:bool=False, test_data_dir:str="./dat
         plot_metrics(train_losses, val_losses, accuracies)
 
     else:
+        loss_func = nn.CrossEntropyLoss()
         model_path = lastest_checkpoint()
         testloader, classes = prepare_test_data(test_data_dir, batch_size=batch_size, num_workers=num_workers)
         model = ViT(image_size, hidden_size, num_hidden_layers, intermediate_size, len(classes), num_attention_heads, hidden_dropout_prob, 
                     attention_probs_dropout_prob, num_channels, patch_size, qkv_bias)
         model.load_state_dict(torch.load(model_path))
-        accuracy, avg_loss = test_visualize(testloader, model, device)
+        # test_visualize(testloader, model, device)
+        accuracy, avg_loss = test(model, device, testloader, loss_func)
+        print(f"Test loss: {avg_loss:.4f}, Test accuracy: {accuracy:.4f}")
 
 
 def objective(trial):
